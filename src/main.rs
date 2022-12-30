@@ -1,5 +1,6 @@
 mod commands;
 use dotenv::dotenv;
+use serenity::model::prelude::command::Command;
 
 use std::env;
 
@@ -59,19 +60,9 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
-        let guild_id = GuildId(
-            env::var("GUILD_ID")
-                .expect("Expected GUILD_ID in environment")
-                .parse()
-                .expect("GUILD_ID must be an integer"),
-        );
-
-        GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
-            commands
-                .create_application_command(|command| commands::waifu::register(command))
-        })
-        .await
-        .unwrap();
+        Command::create_global_application_command(&ctx.http, |command| {
+            commands::waifu::register(command)
+        }).await.unwrap();
     }
 }
 
