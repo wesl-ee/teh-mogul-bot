@@ -1,3 +1,4 @@
+use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -33,7 +34,7 @@ pub fn register(
 ) -> &mut builder::CreateApplicationCommand {
     command
         .name("waifu")
-        .description("txt2img using everything-v3.0 model")
+        .description("txt2img using anything-v3.0 model")
         .create_option(|option| {
             option
                 .name("prompt")
@@ -106,13 +107,14 @@ pub async fn run(options: &[CommandDataOption]) -> Result<(Vec<u8>, i64), String
         steps: 50,
         sampler_name: "DDIM".to_string(),
         override_settings: Some(OverrideSettings {
-            sd_model_checkpoint: "Anything-V3.0-pruned.ckpt [2700c435]".to_string(),
+            sd_model_checkpoint: "Anything-V3.0-pruned-fp16.ckpt [38c1ebe3]".to_string(),
         }),
         override_settings_restore_after: false,
     });
 
     let client = reqwest::Client::new();
-    let resp = client.post("http://localhost:7860/sdapi/v1/txt2img")
+    let uri = env::var("SD_WEBUI_URI").expect("Expected a token in the environment");
+    let resp = client.post(format!("{}/sdapi/v1/txt2img", uri))
         .json(&req_object)
         .send()
         .await
