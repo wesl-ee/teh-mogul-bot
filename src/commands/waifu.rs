@@ -1,10 +1,14 @@
-use std::env;
-use std::time::{SystemTime, UNIX_EPOCH};
+use image::{EncodableLayout, ImageFormat};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serenity::builder;
 use serenity::model::prelude::command::CommandOptionType;
-use serenity::model::prelude::interaction::application_command::{CommandDataOption, CommandDataOptionValue};
+use serenity::model::prelude::interaction::application_command::{
+    CommandDataOption, CommandDataOptionValue,
+};
+use std::env;
+use std::io::Cursor;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize)]
 struct Txt2ImgRequest {
@@ -56,47 +60,49 @@ pub fn register(
         })
 }
 
-pub async fn run(options: &[CommandDataOption]) -> Result<(Vec<u8>, i64), String> {
+pub async fn run(
+    options: &[CommandDataOption],
+) -> Result<(Vec<u8>, i64), String> {
     let prompt = match options
         .iter()
         .find(|o| o.name == "prompt")
         .expect("Expected prompt option")
         .resolved
         .as_ref()
-        .expect("Expected prompt object") {
-            CommandDataOptionValue::String(s) => Ok(s),
-            _ => Err("Prompt was not a string"),
-        }?.to_string();
+        .expect("Expected prompt object")
+    {
+        CommandDataOptionValue::String(s) => Ok(s),
+        _ => Err("Prompt was not a string"),
+    }?
+    .to_string();
 
     let negative_prompt = match options
         .iter()
-        .find(|o| o.name == "negative_prompt") {
-            Some(s) => {
-                if let Some(CommandDataOptionValue::String(prompt)) = &s.resolved {
-                    Ok(prompt.to_string())
-                } else {
-                    Err("")
-                }
+        .find(|o| o.name == "negative_prompt")
+    {
+        Some(s) => {
+            if let Some(CommandDataOptionValue::String(prompt)) = &s.resolved {
+                Ok(prompt.to_string())
+            } else {
+                Err("")
             }
-            None => Ok("".to_string()),
-        }?;
+        }
+        None => Ok("".to_string()),
+    }?;
 
-
-    let seed = match options
-        .iter()
-        .find(|o| o.name == "seed") {
-            Some(s) => {
-                if let Some(CommandDataOptionValue::Integer(seed)) = s.resolved {
-                    Ok(seed)
-                } else {
-                    Err("")
-                }
+    let seed = match options.iter().find(|o| o.name == "seed") {
+        Some(s) => {
+            if let Some(CommandDataOptionValue::Integer(seed)) = s.resolved {
+                Ok(seed)
+            } else {
+                Err("")
             }
-            None => match SystemTime::now().duration_since(UNIX_EPOCH) {
-                Ok(n) => Ok(n.as_secs() as i64),
-                _ => Ok(0i64),
-            }
-        }?;
+        }
+        None => match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => Ok(n.as_secs() as i64),
+            _ => Ok(0i64),
+        },
+    }?;
 
     let req_object = json!(Txt2ImgRequest {
         prompt,
@@ -107,30 +113,41 @@ pub async fn run(options: &[CommandDataOption]) -> Result<(Vec<u8>, i64), String
         steps: 50,
         sampler_name: "DDIM".to_string(),
         override_settings: Some(OverrideSettings {
-            sd_model_checkpoint: "Anything-V3.0-pruned-fp16.ckpt [38c1ebe3]".to_string(),
+            sd_model_checkpoint: "Anything-V3.0-pruned-fp16.ckpt [38c1ebe3]"
+                .to_string(),
         }),
         override_settings_restore_after: false,
     });
 
     let client = reqwest::Client::new();
-    let uri = env::var("SD_WEBUI_URI").expect("Expected a token in the environment");
-    let resp = client.post(format!("{}/sdapi/v1/txt2img", uri))
+    let uri =
+        env::var("SD_WEBUI_URI").expect("Expected a token in the environment");
+    let resp = client
+        .post(format!("{}/sdapi/v1/txt2img", uri))
         .json(&req_object)
         .send()
         .await
-        .map_err(|_| "Hmm".to_string())?;
+        .map_err(|_| "Could not connect to txt2img API".to_string())?;
 
-    let resp = resp.json::<Txt2ImgResponse>()
+    let resp = resp
+        .json::<Txt2ImgResponse>()
         .await
         .map_err(|_| "Could not parse txt2img JSON")?;
 
-    let image = resp.images
+    let image = resp
+        .images
         .get(0)
         .ok_or("txt2img did not produce an image")?;
 
     let img = base64::decode(image)
         .map_err(|_| "Unable to decode txt2img base64 response".to_string())?;
 
-    Ok((img, seed))
-}
+    let mut bytes = Vec::new();
 
+    image::load_from_memory_with_format(img.as_bytes(), ImageFormat::Png)
+        .map_err(|_| "Unable to read txt2img bytes as png".to_string())?
+        .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Jpeg)
+        .map_err(|_| "Unable to convert txt2img png to jpeg".to_string())?;
+
+    Ok((bytes, seed))
+}
