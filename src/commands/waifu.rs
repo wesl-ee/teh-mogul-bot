@@ -104,7 +104,8 @@ pub async fn run(
         },
     }?;
 
-    let sd_model_checkpoint = env::var("SD_MODEL_CKPT").expect("Expected a token in the environment");
+    let sd_model_checkpoint =
+        env::var("SD_MODEL_CKPT").expect("Expected a token in the environment");
 
     let req_object = json!(Txt2ImgRequest {
         prompt,

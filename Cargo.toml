@@ -5,7 +5,7 @@ authors = ["Wesley Coakley <w@wesl.ee>"]
 edition = "2018"
 
 [dependencies]
-serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
+serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "cache", "model"] }
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 reqwest = { version = "0.11", features = ["blocking"] }
 serde_json = { version = "1.0" }

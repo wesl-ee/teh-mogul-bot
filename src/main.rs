@@ -7,7 +7,9 @@ use std::env;
 use serenity::async_trait;
 use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
-use serenity::model::prelude::AttachmentType;
+use serenity::model::prelude::{
+    AttachmentType, Reaction, ReactionType,
+};
 use serenity::prelude::*;
 
 struct Handler;
@@ -24,6 +26,20 @@ impl EventHandler for Handler {
 
                     match run_res {
                         Ok((file, seed)) => {
+                            if command
+                                .get_interaction_response(&ctx.http)
+                                .await
+                                .unwrap()
+                                .react(
+                                    &ctx.http,
+                                    ReactionType::Unicode("❌".to_string()),
+                                )
+                                .await
+                                .map_err(|e| println!("{}", e))
+                                .is_err()
+                            {
+                                println!("[Channel {}] Could not add reaction to message", command.channel_id);
+                            }
                             command
                                 .create_followup_message(&ctx.http, |f| {
                                     f.add_file(AttachmentType::Bytes {
@@ -58,6 +74,21 @@ impl EventHandler for Handler {
         }
     }
 
+    async fn reaction_add(&self, ctx: Context, add_reaction: Reaction) {
+        let reacting_user = add_reaction.user(&ctx.http).await.unwrap();
+
+        let react_message = add_reaction.message(&ctx.http).await.unwrap();
+
+        if react_message.is_own(&ctx.cache) {
+            if let Some(initial_interaction) = &react_message.interaction {
+                if initial_interaction.user.id != reacting_user.id {
+                    return;
+                }
+                react_message.delete(&ctx.http).await.ok();
+            }
+        }
+    }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
@@ -78,10 +109,14 @@ async fn main() {
         env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
 
     // Build our client.
-    let mut client = Client::builder(token, GatewayIntents::empty())
-        .event_handler(Handler)
-        .await
-        .expect("Error creating client");
+    let mut client = Client::builder(
+        token,
+        GatewayIntents::GUILD_MESSAGE_REACTIONS
+            .union(GatewayIntents::DIRECT_MESSAGE_REACTIONS),
+    )
+    .event_handler(Handler)
+    .await
+    .expect("Error creating client");
 
     // Finally, start a single shard, and start listening to events.
     //
