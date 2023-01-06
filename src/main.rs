@@ -16,8 +16,6 @@ struct Handler;
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
-            println!("Received command interaction: {:#?}", command);
-
             let res = match command.data.name.as_str() {
                 "waifu" => {
                     command.defer(&ctx.http).await.unwrap();

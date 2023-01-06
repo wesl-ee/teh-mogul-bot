@@ -104,6 +104,8 @@ pub async fn run(
         },
     }?;
 
+    let sd_model_checkpoint = env::var("SD_MODEL_CKPT").expect("Expected a token in the environment");
+
     let req_object = json!(Txt2ImgRequest {
         prompt,
         seed,
@@ -113,8 +115,7 @@ pub async fn run(
         steps: 50,
         sampler_name: "DDIM".to_string(),
         override_settings: Some(OverrideSettings {
-            sd_model_checkpoint: "Anything-V3.0-pruned-fp16.ckpt [38c1ebe3]"
-                .to_string(),
+            sd_model_checkpoint,
         }),
         override_settings_restore_after: false,
     });
