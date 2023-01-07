@@ -76,18 +76,32 @@ pub async fn run(
     }?
     .to_string();
 
+    let default_negative_prompt = vec![
+        "bad anatomy",
+        "disfigured",
+        "deformed",
+        "malformed",
+        "mutant",
+        "monstrous",
+        "poorly drawn",
+        "extra limbs",
+        "extra fingers",
+        "missing limbs",
+    ]
+    .join(", ");
+
     let negative_prompt = match options
         .iter()
         .find(|o| o.name == "negative_prompt")
     {
         Some(s) => {
             if let Some(CommandDataOptionValue::String(prompt)) = &s.resolved {
-                Ok(prompt.to_string())
+                Ok([prompt.to_string(), default_negative_prompt].join(", "))
             } else {
                 Err("")
             }
         }
-        None => Ok("".to_string()),
+        None => Ok(default_negative_prompt.to_string()),
     }?;
 
     let seed = match options.iter().find(|o| o.name == "seed") {

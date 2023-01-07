@@ -7,9 +7,7 @@ use std::env;
 use serenity::async_trait;
 use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
-use serenity::model::prelude::{
-    AttachmentType, Reaction, ReactionType,
-};
+use serenity::model::prelude::{AttachmentType, Reaction, ReactionType};
 use serenity::prelude::*;
 
 struct Handler;
