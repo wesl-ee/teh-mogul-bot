@@ -77,16 +77,24 @@ pub async fn run(
     .to_string();
 
     let default_negative_prompt = vec![
+        "lowres",
         "bad anatomy",
-        "disfigured",
-        "deformed",
-        "malformed",
-        "mutant",
-        "monstrous",
-        "poorly drawn",
-        "extra limbs",
-        "extra fingers",
-        "missing limbs",
+        "bad hands",
+        "text",
+        "error",
+        "missing fingers",
+        "extra digit",
+        "fewer digits",
+        "cropped",
+        "worst quality",
+        "low quality",
+        "normal quality",
+        "jpeg artifacts",
+        "signature",
+        "watermark",
+        "username",
+        "blurry",
+        "artist name",
     ]
     .join(", ");
 
