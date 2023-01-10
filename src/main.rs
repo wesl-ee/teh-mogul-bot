@@ -15,66 +15,65 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            let res = match command.data.name.as_str() {
-                "waifu" => {
-                    command.defer(&ctx.http).await.unwrap();
-                    let run_res =
-                        commands::waifu::run(&command.data.options).await;
+        let command = match interaction.application_command() {
+            Some(i) => i,
+            None => return,
+        };
+        let res = match command.data.name.as_str() {
+            "waifu" => {
+                command.defer(&ctx.http).await.unwrap();
+                let run_res = commands::waifu::run(&command.data.options).await;
 
-                    match run_res {
-                        Ok((file, seed)) => {
-                            if command
-                                .get_interaction_response(&ctx.http)
-                                .await
-                                .unwrap()
-                                .react(
-                                    &ctx.http,
-                                    ReactionType::Unicode("❌".to_string()),
-                                )
-                                .await
-                                .map_err(|e| println!("{}", e))
-                                .is_err()
-                            {
-                                println!("[Channel {}] Could not add reaction to message", command.channel_id);
-                            }
-                            command
-                                .create_followup_message(&ctx.http, |f| {
-                                    f.add_file(AttachmentType::Bytes {
-                                        data: file.into(),
-                                        filename: "out.jpeg".to_string(),
-                                    });
-                                    f.content(format!("`seed:{}`", seed))
-                                })
-                                .await
+                match run_res {
+                    Ok((file, seed)) => {
+                        if command
+                            .get_interaction_response(&ctx.http)
+                            .await
+                            .unwrap()
+                            .react(
+                                &ctx.http,
+                                ReactionType::Unicode("❌".to_string()),
+                            )
+                            .await
+                            .map_err(|e| println!("{}", e))
+                            .is_err()
+                        {
+                            println!("[Channel {}] Could not add reaction to message", command.channel_id);
                         }
-                        Err(s) => {
-                            command
-                                .create_followup_message(&ctx.http, |f| {
-                                    f.content(format!("Error: {}", s))
-                                })
-                                .await
-                        }
+                        command
+                            .create_followup_message(&ctx.http, |f| {
+                                f.add_file(AttachmentType::Bytes {
+                                    data: file.into(),
+                                    filename: "out.jpeg".to_string(),
+                                });
+                                f.content(format!("`seed:{}`", seed))
+                            })
+                            .await
+                    }
+                    Err(s) => {
+                        command
+                            .create_followup_message(&ctx.http, |f| {
+                                f.content(format!("Error: {}", s))
+                            })
+                            .await
                     }
                 }
-                _ => {
-                    command
-                        .create_followup_message(&ctx.http, |f| {
-                            f.content("Not implemented :(")
-                        })
-                        .await
-                }
-            };
-
-            if let Err(why) = res {
-                println!("Cannot respond to slash command: {}", why);
             }
+            _ => {
+                command
+                    .create_followup_message(&ctx.http, |f| {
+                        f.content("Not implemented :(")
+                    })
+                    .await
+            }
+        };
+        if let Err(why) = res {
+            println!("Cannot respond to slash command: {}", why);
         }
     }
 
     async fn reaction_add(&self, ctx: Context, add_reaction: Reaction) {
         let reacting_user = add_reaction.user(&ctx.http).await.unwrap();
-
         let react_message = add_reaction.message(&ctx.http).await.unwrap();
 
         if react_message.is_own(&ctx.cache) {
@@ -82,7 +81,15 @@ impl EventHandler for Handler {
                 if initial_interaction.user.id != reacting_user.id {
                     return;
                 }
-                react_message.delete(&ctx.http).await.ok();
+                if let ReactionType::Unicode(s) = add_reaction.emoji {
+                    match s.as_ref() {
+                        "❌" => {
+                            react_message.delete(&ctx.http).await.ok();
+                        }
+                        "🔁" => { /* TODO */ }
+                        _ => {}
+                    }
+                }
             }
         }
     }
